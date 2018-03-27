@@ -2,13 +2,18 @@
 require 'systemu'
 
 PACKAGEINFO_DIR = "/var/log/packages"
-
-$packages = Array.new
+DOCDIR = "/usr/share/doc"
+REPO_DIR = "./Plamo-src"
 
 def get_packages()
-  Dir.open(PACKAGEINFO_DIR).each do |p|
-    $packages.push(p)
+  packages = Array.new
+  Dir.open(PACKAGEINFO_DIR).each do |package|
+    if package == "." || package == ".." then
+      next
+    end
+    packages.push(package)
   end
+  return packages
 end
 
 def get_category(package)
@@ -24,7 +29,13 @@ def get_category(package)
   return false
 end
 
-#get_packages
-p get_category("lxc")
+def copy_buildscript()
+  Dir.glob("#{DOCDIR}/*/PlamoBuild.*.gz").each do |script|
+    puts script
+  end
+end
 
-p $packages
+#p get_packages
+#p get_src("lxc")
+#p $packages
+copy_buildscript
