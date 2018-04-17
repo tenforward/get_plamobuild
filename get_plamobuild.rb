@@ -10,7 +10,8 @@ LOCATION = "/var/adm/mount/plamo/"
 
 def get_package_infos()
   Dir.glob("#{PACKAGEINFO_DIR}/*") do |f|
-    package_name = f.delete_prefix("#{PACKAGEINFO_DIR}/")
+    package_name = f.delete_prefix("#{PACKAGEINFO_DIR}/").chomp
+    puts "=== #{package_name} ==="
     io = open(f, "r")
     while line = io.gets
       if /PACKAGE NAME:\s+(.*?)-(.*?)-(.*?)-(.*)/ =~ line then
@@ -20,47 +21,27 @@ def get_package_infos()
         category = $2
       end
       if /PlamoBuild/ =~ line then
-        script = "/#{line}"
+        script_path = "/#{line}".chomp
+        script = File.basename(script_path)
       end
     end
-    puts "plamo/#{category}/#{package_name}/"
+    if category.nil? || category.empty? then
+      log = open("failure.txt", "a")
+      log.seek(0, IO::SEEK_END)
+      log.puts("#{package_name}: no category")
+      log.close
+    elsif script_path.nil? || script_path.empty? then
+      log = open("failure.txt", "a")
+      log.seek(0, IO::SEEK_END)
+      log.puts("#{package_name}: No PlamoBuild")
+      log.close
+    else
+      to_dir = "#{REPO_DIR}/#{category}/#{package_name}"
+      FileUtils.mkdir_p(to_dir, {:verbose => true})
+      FileUtils.copy(script_path, to_dir, {:verbose => true})
+    end
     io.close
   end
 end
 
-def get_category(package)
-  pkg_file = "#{PACKAGEINFO_DIR}/#{package}"
-  res = systemu("grep 'PACKAGE LOCATION' #{pkg_file} | awk '{ print $3 }'")
-  if !res[0].success? then
-    return false
-  end
-  if /\/var\/adm\/mount\/plamo\/(\d+_\w+)\// =~ res[1] then
-    return $1
-  end
-  $stderr.puts("\"#{package}\" does not includes category info.")
-  return false
-end
-
-def copy_buildscript()
-  # docdir の PlamoBuild.* をサーチ
-  Dir.glob("#{DOCDIR}/*/PlamoBuild.*.gz").each do |fullpath|
-    if /(.*)\/(PlamoBuild.*)/ =~ fullpath.delete_prefix("#{DOCDIR}/") then
-      script_gz = $2
-      script = script_gz.delete_suffix(".gz")
-      if /(.*)-([0-9.-_]+)/ =~ script then
-        package = $1.delete_prefix("PlamoBuild.").tr("-", "_")
-        version = $2
-      end
-      if !FileTest.exist?("#{PACKAGEINFO_DIR}/#{package}") then
-        io = open(FAIL_FILE, "a")
-        io.seek(0, IO::SEEK_END)
-        io.puts("Script: #{script}\t\tPackage: #{package}\t\tVersion: #{version}")
-        io.close
-      end
-      puts "Script: #{script}\t\tPackage: #{package}\t\tVersion: #{version}"
-    end
-  end
-end
-
-#copy_buildscript
 get_package_infos
