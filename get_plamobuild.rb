@@ -8,6 +8,8 @@ REPO_DIR = "./Plamo-src"
 FAIL_FILE = "./failure.txt"
 LOCATION = "/var/adm/mount/plamo/"
 
+$related = ["patch", "init", "conf", "service", ".cf"]
+
 def get_package_infos()
   Dir.glob("#{PACKAGEINFO_DIR}/*") do |f|
     package_name = f.delete_prefix("#{PACKAGEINFO_DIR}/").chomp
@@ -23,6 +25,7 @@ def get_package_infos()
       if /PlamoBuild/ =~ line then
         script_path = "/#{line}".chomp
         script = File.basename(script_path)
+        script_dir = File.dirname(script_path)
       end
     end
     if category.nil? || category.empty? then
@@ -37,11 +40,33 @@ def get_package_infos()
       log.close
     else
       to_dir = "#{REPO_DIR}/#{category}/#{package_name}"
-      FileUtils.mkdir_p(to_dir, {:verbose => true})
-      FileUtils.copy(script_path, to_dir, {:verbose => true})
+      FileUtils.mkdir_p(to_dir, {:verbose => false})
+      FileUtils.copy(script_path, to_dir, {:verbose => false})
+      get_related_files(script_dir).each do |file|
+        FileUtils.copy("#{script_dir}/#{file}", to_dir, {:verbose => true})
+      end
     end
     io.close
   end
 end
 
+def get_related_files(dir)
+  files = Array.new
+  Dir.open(dir).each do |o|
+    if o == "." || o == ".." then
+      next
+    end
+    if FileTest.directory?("#{dir}/#{o}") then
+      next
+    end
+    $related.each do |pattern|
+      if %r(#{pattern}) =~ o then
+        files << o
+      end
+    end
+  end
+  return files
+end
+
 get_package_infos
+#get_related_files("/usr/share/doc/dhcp-4.4.1/")
